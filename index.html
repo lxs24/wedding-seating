@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>婚礼宴会厅座位图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f5f0eb; color: #333; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 100;
+    background: #fff; border-bottom: 1px solid #e0d6cc;
+    padding: 12px 24px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .toolbar h1 { font-size: 20px; color: #8b6914; letter-spacing: 2px; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar button {
+    padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 14px; font-weight: 500; transition: all 0.2s;
+  }
+  .btn-primary { background: #8b6914; color: #fff; }
+  .btn-primary:hover { background: #a07a1a; }
+  .btn-secondary { background: #f0e8db; color: #8b6914; border: 1px solid #d4c4a8 !important; }
+  .btn-secondary:hover { background: #e8dcc8; }
+  .btn-danger { background: #fff0f0; color: #c0392b; border: 1px solid #f0d0d0 !important; }
+  .btn-danger:hover { background: #ffe0e0; }
+
+  .sync-status {
+    font-size: 12px; padding: 4px 10px; border-radius: 10px; display: flex; align-items: center; gap: 4px;
+  }
+  .sync-status.online { background: #e8f5e9; color: #2e7d32; }
+  .sync-status.offline { background: #fff3e0; color: #e65100; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .sync-status.online .sync-dot { background: #4caf50; }
+  .sync-status.offline .sync-dot { background: #ff9800; }
+
+  .main { display: flex; height: calc(100vh - 57px); }
+
+  .hall-container {
+    flex: 1; padding: 24px; overflow: auto; display: flex; flex-direction: column; align-items: center;
+  }
+  .hall {
+    position: relative; width: 1000px; min-height: 780px;
+    background: #fff; border: 2px solid #d4c4a8; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  .stage {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 440px; height: 56px; background: linear-gradient(135deg, #c9a84c, #8b6914);
+    border-radius: 0 0 12px 12px; display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 20px; font-weight: bold; letter-spacing: 8px;
+  }
+  .entrance {
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 160px; height: 36px; background: #f0e8db; border: 2px solid #d4c4a8;
+    border-bottom: none; border-radius: 8px 8px 0 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #8b6914; letter-spacing: 2px;
+  }
+  .tai {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: 56px; bottom: 36px; width: 80px;
+    background: repeating-linear-gradient(
+      180deg, rgba(201,168,76,0.10) 0px, rgba(201,168,76,0.10) 12px,
+      rgba(201,168,76,0.04) 12px, rgba(201,168,76,0.04) 24px
+    );
+    border-left: 2px dashed rgba(201,168,76,0.35);
+    border-right: 2px dashed rgba(201,168,76,0.35);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tai-text {
+    writing-mode: vertical-rl; font-size: 14px; font-weight: bold;
+    color: rgba(201,168,76,0.5); letter-spacing: 6px;
+  }
+  .side-label {
+    position: absolute; font-size: 15px; font-weight: bold;
+    letter-spacing: 4px; writing-mode: vertical-rl; text-orientation: mixed;
+    padding: 14px 6px; border-radius: 6px;
+  }
+  .side-label.left {
+    top: 80px; left: 6px; color: #2c5f8a; background: rgba(44,95,138,0.07);
+    border: 1px solid rgba(44,95,138,0.12);
+  }
+  .side-label.right {
+    top: 80px; right: 6px; color: #a04060; background: rgba(160,64,96,0.07);
+    border: 1px solid rgba(160,64,96,0.12);
+  }
+
+  .table-node {
+    position: absolute; width: 80px; height: 80px; border-radius: 50%;
+    background: #faf6f0; border: 2.5px solid #d4c4a8;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.25s; user-select: none;
+  }
+  .table-node:hover { border-color: #8b6914; transform: scale(1.08); box-shadow: 0 4px 16px rgba(139,105,20,0.2); }
+  .table-node.active { border-color: #8b6914; background: #fff8e8; box-shadow: 0 0 0 3px rgba(139,105,20,0.15); }
+  .table-node .table-num { font-size: 17px; font-weight: bold; color: #8b6914; line-height: 1; }
+  .table-node .table-cat {
+    font-size: 9px; color: #888; margin-top: 2px; max-width: 72px;
+    text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .table-node .table-count { font-size: 9px; color: #aaa; margin-top: 1px; }
+  .table-node.has-guests { background: #f0f7ee; border-color: #7ab648; }
+  .table-node.has-guests .table-num { color: #5a8a30; }
+  .table-node.has-guests .table-cat { color: #6a9a40; }
+  .table-node.has-guests .table-count { color: #7ab648; }
+
+  .table-node.main-table {
+    width: 96px; height: 96px; border: 3px solid #c9a84c;
+    background: linear-gradient(135deg, #fff8e8, #fef0d0);
+    box-shadow: 0 2px 16px rgba(201,168,76,0.3);
+  }
+  .table-node.main-table .table-num { font-size: 13px; color: #8b6914; }
+  .table-node.main-table .table-cat { font-size: 10px; color: #8b6914; font-weight: bold; }
+
+  /* 正在编辑的高亮 */
+  .table-node.editing { border-color: #e67e22 !important; box-shadow: 0 0 0 3px rgba(230,126,34,0.2) !important; }
+
+  .panel {
+    width: 400px; background: #fff; border-left: 1px solid #e0d6cc;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .panel-header {
+    padding: 16px 20px; border-bottom: 1px solid #eee;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .panel-header h2 { font-size: 16px; color: #8b6914; }
+  .panel-header .badge {
+    background: #f0e8db; color: #8b6914; font-size: 12px;
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .category-edit {
+    width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  }
+  .category-edit label { font-size: 13px; color: #888; white-space: nowrap; }
+  .category-input {
+    flex: 1; height: 30px; border: 1px solid #e0d6cc; border-radius: 4px;
+    padding: 0 8px; font-size: 13px; outline: none;
+  }
+  .category-input:focus { border-color: #8b6914; }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .panel-empty { text-align: center; padding: 50px 20px; color: #bbb; font-size: 14px; }
+
+  .seat-list { display: flex; flex-direction: column; gap: 8px; }
+  .seat-row { display: flex; align-items: center; gap: 10px; }
+  .seat-label {
+    width: 44px; height: 44px; border-radius: 50%; background: #faf6f0;
+    border: 2px solid #e0d6cc; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #a09080; flex-shrink: 0;
+  }
+  .seat-input {
+    flex: 1; height: 36px; border: 1px solid #e0d6cc; border-radius: 6px;
+    padding: 0 12px; font-size: 14px; outline: none; transition: border 0.2s;
+  }
+  .seat-input:focus { border-color: #8b6914; }
+  .seat-input.filled { background: #f0f7ee; border-color: #7ab648; }
+
+  .stats {
+    padding: 12px 20px; border-top: 1px solid #eee; background: #faf8f5;
+    display: flex; justify-content: space-between; font-size: 13px; color: #888;
+  }
+  .stats span { color: #8b6914; font-weight: bold; }
+
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 28px; width: 480px; max-height: 80vh;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2); display: flex; flex-direction: column;
+  }
+  .modal h3 { font-size: 18px; color: #8b6914; margin-bottom: 12px; }
+  .modal textarea {
+    width: 100%; height: 220px; border: 1px solid #e0d6cc; border-radius: 8px;
+    padding: 12px; font-size: 14px; font-family: inherit; resize: vertical; outline: none;
+  }
+  .modal textarea:focus { border-color: #8b6914; }
+  .modal .hint { font-size: 12px; color: #999; margin: 8px 0 16px; }
+  .modal .btns { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* 数据库配置弹窗 */
+  .config-modal .modal { width: 520px; }
+  .config-modal .config-step {
+    background: #faf8f5; border-radius: 8px; padding: 14px; margin-bottom: 12px;
+    font-size: 13px; line-height: 1.8; color: #555;
+  }
+  .config-modal .config-step strong { color: #8b6914; }
+  .config-modal .config-step code {
+    background: #f0e8db; padding: 1px 6px; border-radius: 3px; font-size: 12px;
+  }
+  .config-modal .config-link {
+    display: inline-block; background: #8b6914; color: #fff; padding: 4px 12px;
+    border-radius: 4px; text-decoration: none; font-size: 13px; margin: 4px 0;
+  }
+  .config-modal .config-link:hover { background: #a07a1a; }
+
+  /* ===== 手机端适配 ===== */
+  @media screen and (max-width: 768px) {
+    .toolbar {
+      flex-wrap: wrap; padding: 8px 12px; gap: 6px;
+    }
+    .toolbar h1 { font-size: 16px; letter-spacing: 1px; width: 100%; text-align: center; }
+    .toolbar .spacer { display: none; }
+    .toolbar button {
+      padding: 6px 10px; font-size: 12px; flex: 1 1 auto; min-width: 0;
+    }
+    .sync-status { font-size: 11px; padding: 3px 8px; }
+
+    .main {
+      flex-direction: column; height: auto; min-height: calc(100vh - 90px);
+    }
+
+    .hall-container {
+      padding: 8px; overflow: hidden;
+      flex: none;
+    }
+    .hall {
+      transform-origin: top center;
+      /* JS will set the scale dynamically */
+    }
+
+    .panel {
+      width: 100%; border-left: none; border-top: 1px solid #e0d6cc;
+      max-height: 50vh;
+    }
+    .panel-header { padding: 10px 12px; }
+    .panel-body { padding: 10px 12px; }
+    .stats { padding: 8px 12px; }
+
+    .seat-label { width: 36px; height: 36px; font-size: 10px; }
+    .seat-input { height: 32px; font-size: 13px; }
+
+    .modal { width: 95vw !important; padding: 16px; max-height: 85vh; }
+    .modal h3 { font-size: 16px; }
+    .modal textarea { height: 160px; font-size: 13px; }
+    .config-modal .config-step { padding: 10px; font-size: 12px; }
+  }
+
+  @media print {
+    .toolbar, .panel, .modal-overlay { display: none !important; }
+    .main { display: block; height: auto; }
+    .hall-container { padding: 0; }
+    .hall { box-shadow: none; border: 1px solid #ccc; }
+    body { background: #fff; }
+    @page { size: A3 landscape; margin: 8mm; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>婚礼宴会厅座位图</h1>
+  <div class="sync-status offline" id="syncStatus">
+    <span class="sync-dot"></span><span id="syncText">未连接</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn-secondary" onclick="showConfig()">数据库设置</button>
+  <button class="btn-secondary" onclick="batchEdit()">批量编辑名单</button>
+  <button class="btn-secondary" onclick="exportData()">导出数据</button>
+  <button class="btn-secondary" onclick="importData()">导入数据</button>
+  <button class="btn-danger" onclick="clearAll()">清空所有</button>
+  <button class="btn-primary" onclick="window.print()">打印座位图</button>
+</div>
+
+<div class="main">
+  <div class="hall-container">
+    <div class="hall" id="hall">
+      <div class="stage">舞 台</div>
+      <div class="tai"><span class="tai-text">T 台</span></div>
+      <div class="entrance">入 口</div>
+      <div class="side-label left">男方宾客</div>
+      <div class="side-label right">女方宾客</div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <h2 id="panelTitle">座位编辑</h2>
+      <div class="badge" id="panelBadge">点击桌位编辑</div>
+      <div class="category-edit" id="categoryEdit" style="display:none;">
+        <label>宾客分类：</label>
+        <input class="category-input" id="categoryInput" type="text" placeholder="如：男方同事" onchange="onCategoryChange(this)">
+      </div>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="panel-empty" id="panelEmpty">
+        <div style="font-size:40px;margin-bottom:12px;">&#x1FA91;</div>
+        点击桌位编辑宾客座位<br><br>
+        <span style="font-size:12px;color:#ccc;">左侧 = 男方 &nbsp;|&nbsp; 右侧 = 女方<br>金色主桌 = T台左侧第一桌（双方父母）</span>
+      </div>
+      <div class="seat-list" id="seatList" style="display:none;"></div>
+    </div>
+    <div class="stats">
+      <div>已安排：<span id="statGuests">0</span> 人</div>
+      <div>已分配桌：<span id="statTables">0</span> / 35</div>
+    </div>
+  </div>
+</div>
+
+<!-- 批量编辑 -->
+<div class="modal-overlay" id="batchModal">
+  <div class="modal">
+    <h3>批量编辑宾客名单</h3>
+    <textarea id="batchText" placeholder="格式示例：
+1: 张三,李四,王五,赵六,孙七,周八,吴九,郑十,陈一,林二
+2: 刘一,陈二,张三
+
+每行一桌，桌号: 姓名用逗号分隔"></textarea>
+    <div class="hint">每行格式：桌号: 姓名1, 姓名2, ...（逗号分隔，最多11人）</div>
+    <div class="btns">
+      <button class="btn-secondary" onclick="closeBatch()">取消</button>
+      <button class="btn-primary" onclick="applyBatch()">应用</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导入 -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <h3>导入数据</h3>
+    <textarea id="importText" placeholder="粘贴之前导出的 JSON 数据..."></textarea>
+    <div class="hint">将之前导出的 JSON 数据粘贴到此处</div>
+    <div class="btns">
+      <button class="btn-secondary" onclick="closeImport()">取消</button>
+      <button class="btn-primary" onclick="applyImport()">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 数据库配置 -->
+<div class="modal-overlay config-modal" id="configModal">
+  <div class="modal">
+    <h3>数据库设置（GitHub 云存储）</h3>
+    <div class="config-step">
+      <strong>第一步：</strong>在 <a class="config-link" href="https://github.com/new" target="_blank">GitHub</a> 创建一个公开仓库（如 <code>wedding-seating</code>），勾选"添加 README"初始化。<br><br>
+      <strong>第二步：</strong>在仓库中创建一个文件 <code>data.json</code>，内容写 <code>{}</code>，提交保存。<br><br>
+      <strong>第三步：</strong>生成 Token：点右上角头像 → <code>Settings</code> → 左侧最下方 <code>Developer settings</code> → <code>Personal access tokens</code> → <code>Tokens (classic)</code> → <code>Generate new token (classic)</code> → 勾选 <code>repo</code> 权限 → 生成并复制 Token。<br><br>
+      <strong>第四步：</strong>将下方信息填好，点"连接"。
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <input id="ghOwner" class="category-input" placeholder="GitHub 用户名（Owner）" style="height:36px;">
+      <input id="ghRepo" class="category-input" placeholder="仓库名（如 wedding-seating）" style="height:36px;">
+      <input id="ghPath" class="category-input" placeholder="文件路径（默认 data.json）" value="data.json" style="height:36px;">
+      <input id="ghToken" class="category-input" type="password" placeholder="Personal Access Token" style="height:36px;">
+    </div>
+    <div class="hint">Token 仅保存在你的浏览器本地，不会上传到任何地方</div>
+    <div class="btns">
+      <button class="btn-secondary" onclick="closeConfig()">取消</button>
+      <button class="btn-primary" onclick="applyConfig()">连接</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SEATS = 11;
+
+// ===== 桌位配置 =====
+var tableConfig = [
+  { id:1,  x:430, y:140, category:'双方父母(主桌)', isMain:true },
+  { id:2,  x:100, y:140, category:'男方亲属' },
+  { id:5,  x:210, y:140, category:'男方亲属' },
+  { id:6,  x:320, y:140, category:'男方长辈' },
+  { id:7,  x:100, y:260, category:'男方长辈' },
+  { id:8,  x:210, y:260, category:'男方同事' },
+  { id:9,  x:320, y:260, category:'男方同事' },
+  { id:10, x:430, y:260, category:'男方领导' },
+  { id:11, x:100, y:380, category:'男方领导' },
+  { id:12, x:210, y:380, category:'男方朋友' },
+  { id:13, x:320, y:380, category:'男方朋友' },
+  { id:14, x:430, y:380, category:'男方同学' },
+  { id:15, x:100, y:500, category:'男方同学' },
+  { id:16, x:210, y:500, category:'男方邻居' },
+  { id:17, x:320, y:500, category:'男方邻居' },
+  { id:18, x:430, y:500, category:'男方亲戚' },
+  { id:19, x:100, y:620, category:'男方亲戚' },
+  { id:20, x:210, y:620, category:'男方兄弟' },
+  { id:21, x:570, y:140, category:'女方亲属' },
+  { id:22, x:680, y:140, category:'女方亲属' },
+  { id:23, x:790, y:140, category:'女方长辈' },
+  { id:24, x:900, y:140, category:'女方长辈' },
+  { id:25, x:570, y:260, category:'女方同事' },
+  { id:26, x:680, y:260, category:'女方同事' },
+  { id:27, x:790, y:260, category:'女方领导' },
+  { id:28, x:900, y:260, category:'女方领导' },
+  { id:29, x:570, y:380, category:'女方朋友' },
+  { id:30, x:680, y:380, category:'女方朋友' },
+  { id:31, x:790, y:380, category:'女方同学' },
+  { id:32, x:900, y:380, category:'女方同学' },
+  { id:35, x:570, y:500, category:'女方邻居' },
+  { id:36, x:680, y:500, category:'女方邻居' },
+  { id:37, x:790, y:500, category:'女方亲戚' },
+  { id:38, x:900, y:500, category:'女方亲戚' },
+  { id:39, x:570, y:620, category:'女方姐妹' },
+];
+
+var guestData = {};
+var categoryData = {};
+var activeTable = null;
+var ghOwner = 'lxs24', ghRepo = 'wedding-seating', ghPath = 'data.json', ghToken = '';
+var ghApiBase = '';
+var ghSha = '';
+var ghEtag = '';
+var localVersion = 0;
+var pollTimer = null;
+var isSaving = false;
+
+// 从 localStorage 读取 GitHub 配置
+var savedConfig = null;
+try { savedConfig = JSON.parse(localStorage.getItem('github_config')); } catch(e) {}
+
+tableConfig.forEach(function(t) { categoryData[t.id] = t.category; });
+
+function init() {
+  var hall = document.getElementById('hall');
+  tableConfig.forEach(function(t) {
+    var div = document.createElement('div');
+    var isMain = t.isMain || false;
+    div.className = 'table-node' + (isMain ? ' main-table' : '');
+    div.id = 'table-' + t.id;
+    var half = isMain ? 48 : 40;
+    div.style.left = (t.x - half) + 'px';
+    div.style.top = (t.y - half) + 'px';
+    div.innerHTML =
+      '<div class="table-num">' + t.id + '</div>' +
+      '<div class="table-cat">' + t.category + '</div>' +
+      '<div class="table-count">0/' + SEATS + '</div>';
+    div.setAttribute('data-id', t.id);
+    div.onclick = function() { selectTable(parseInt(this.getAttribute('data-id'))); };
+    hall.appendChild(div);
+  });
+  updateStats();
+
+  // 自动连接 GitHub 配置
+  if (ghOwner && ghRepo && ghToken) {
+    ghApiBase = 'https://api.github.com/repos/' + ghOwner + '/' + ghRepo + '/contents/' + ghPath;
+    connectGitHub();
+  }
+}
+
+// ===== GitHub API 连接 =====
+function connectGitHub() {
+  fetch(ghApiBase, {
+    headers: {
+      'Authorization': 'token ' + ghToken,
+      'Accept': 'application/vnd.github.v3+json'
+    }
+  })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status + (r.status === 404 ? '（文件不存在，请先在仓库中创建 data.json）' : ''));
+      ghEtag = r.headers.get('ETag') || '';
+      return r.json();
+    })
+    .then(function(file) {
+      ghSha = file.sha;
+      var content = '';
+      if (file.content) {
+        content = decodeBase64(file.content);
+      }
+      if (content) {
+        try {
+          var saved = JSON.parse(content);
+          if (saved.guests) { guestData = saved.guests; tableConfig.forEach(function(t) { updateNode(t.id); }); }
+          if (saved.categories) { categoryData = saved.categories; tableConfig.forEach(function(t) { var n = document.getElementById('table-' + t.id); if (n && categoryData[t.id]) n.querySelector('.table-cat').textContent = categoryData[t.id]; }); }
+          localVersion = saved.version || 0;
+          updateStats();
+          if (activeTable) renderEditor();
+        } catch(e) {}
+      }
+      localStorage.setItem('github_config', JSON.stringify({ owner: ghOwner, repo: ghRepo, path: ghPath, token: ghToken }));
+      savedConfig = { owner: ghOwner, repo: ghRepo, path: ghPath, token: ghToken };
+      document.getElementById('syncStatus').className = 'sync-status online';
+      document.getElementById('syncText').textContent = '已连接 GitHub（多人协作）';
+      closeConfig();
+      startPolling();
+    })
+    .catch(function(e) {
+      alert('连接失败：' + e.message + '\n\n请检查用户名、仓库名、文件路径和 Token 是否正确。');
+    });
+}
+
+function decodeBase64(str) {
+  try { return decodeURIComponent(escape(atob(str.replace(/\n/g, '')))); } catch(e) { return ''; }
+}
+function encodeBase64(str) { return btoa(unescape(encodeURIComponent(str))); }
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(function() {
+    if (isSaving) return;
+    var headers = {
+      'Authorization': 'token ' + ghToken,
+      'Accept': 'application/vnd.github.v3+json'
+    };
+    if (ghEtag) headers['If-None-Match'] = ghEtag;
+    fetch(ghApiBase, { headers: headers })
+      .then(function(r) {
+        if (r.status === 304) return null; // 无变化
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        ghEtag = r.headers.get('ETag') || '';
+        return r.json();
+      })
+      .then(function(file) {
+        if (!file) return;
+        ghSha = file.sha;
+        var content = file.content ? decodeBase64(file.content) : '';
+        if (content) {
+          try {
+            var saved = JSON.parse(content);
+            if (saved.version && saved.version > localVersion) {
+              localVersion = saved.version;
+              if (saved.guests) {
+                guestData = saved.guests;
+                tableConfig.forEach(function(t) { updateNode(t.id); });
+                updateStats();
+                if (activeTable) renderEditor();
+              }
+              if (saved.categories) {
+                categoryData = saved.categories;
+                tableConfig.forEach(function(t) {
+                  var n = document.getElementById('table-' + t.id);
+                  if (n && categoryData[t.id]) n.querySelector('.table-cat').textContent = categoryData[t.id];
+                });
+              }
+            }
+          } catch(e) {}
+        }
+      })
+      .catch(function() {});
+  }, 3000);
+}
+
+function showConfig() {
+  if (savedConfig) {
+    document.getElementById('ghOwner').value = savedConfig.owner || '';
+    document.getElementById('ghRepo').value = savedConfig.repo || '';
+    document.getElementById('ghPath').value = savedConfig.path || 'data.json';
+    document.getElementById('ghToken').value = savedConfig.token || '';
+  } else {
+    document.getElementById('ghOwner').value = '';
+    document.getElementById('ghRepo').value = '';
+    document.getElementById('ghPath').value = 'data.json';
+    document.getElementById('ghToken').value = '';
+  }
+  document.getElementById('configModal').classList.add('show');
+}
+function closeConfig() { document.getElementById('configModal').classList.remove('show'); }
+function applyConfig() {
+  var owner = document.getElementById('ghOwner').value.trim();
+  var repo = document.getElementById('ghRepo').value.trim();
+  var path = document.getElementById('ghPath').value.trim() || 'data.json';
+  var token = document.getElementById('ghToken').value.trim();
+  if (!owner || !repo || !token) {
+    alert('请填写 GitHub 用户名、仓库名和 Token');
+    return;
+  }
+  ghOwner = owner;
+  ghRepo = repo;
+  ghPath = path;
+  ghToken = token;
+  ghApiBase = 'https://api.github.com/repos/' + ghOwner + '/' + ghRepo + '/contents/' + ghPath;
+  connectGitHub();
+}
+
+// ===== 保存数据到 GitHub =====
+function saveToRemote() {
+  if (!ghApiBase || !ghToken) return;
+  isSaving = true;
+  localVersion++;
+  var data = JSON.stringify({
+    data: { guests: guestData, categories: categoryData },
+    version: localVersion
+  }, null, 2);
+
+  fetch(ghApiBase, {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'token ' + ghToken,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      message: 'Update wedding seating data',
+      content: encodeBase64(data),
+      sha: ghSha
+    })
+  }).then(function(r) {
+    if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+    return r.json();
+  }).then(function(file) {
+    ghSha = file.content.sha;
+    ghEtag = ''; // 清除 ETag，下次轮询重新获取
+    isSaving = false;
+  }).catch(function(e) {
+    isSaving = false;
+    console.error('保存失败:', e);
+  });
+}
+
+// ===== 座位编辑 =====
+function selectTable(id) {
+  document.querySelectorAll('.table-node').forEach(function(n) { n.classList.remove('active'); });
+  document.getElementById('table-' + id).classList.add('active');
+  activeTable = id;
+  renderEditor();
+}
+
+function renderEditor() {
+  if (!activeTable) return;
+  var list = document.getElementById('seatList');
+  var empty = document.getElementById('panelEmpty');
+  var badge = document.getElementById('panelBadge');
+  var catEdit = document.getElementById('categoryEdit');
+  var catInput = document.getElementById('categoryInput');
+  empty.style.display = 'none';
+  list.style.display = 'flex';
+  catEdit.style.display = 'flex';
+  badge.textContent = '第 ' + activeTable + ' 桌';
+  catInput.value = categoryData[activeTable] || '';
+
+  var guests = guestData[activeTable] || [];
+  var html = '';
+  for (var i = 0; i < SEATS; i++) {
+    var name = guests[i] || '';
+    html += '<div class="seat-row">' +
+      '<div class="seat-label">座位' + (i+1) + '</div>' +
+      '<input class="seat-input ' + (name ? 'filled' : '') + '" type="text" placeholder="宾客姓名" ' +
+      'value="' + esc(name) + '" data-seat="' + i + '" oninput="onSeatInput(this)" onchange="onSeatChange(this)" onfocus="this.select()">' +
+      '</div>';
+  }
+  list.innerHTML = html;
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// 实时输入时立即同步（防抖）
+var saveTimer = null;
+function onSeatInput(input) {
+  var seat = parseInt(input.getAttribute('data-seat'));
+  var val = input.value.trim();
+  if (!guestData[activeTable]) guestData[activeTable] = [];
+  while (guestData[activeTable].length < SEATS) guestData[activeTable].push('');
+  guestData[activeTable][seat] = val;
+  input.classList.toggle('filled', !!val);
+  updateNode(activeTable);
+  updateStats();
+
+  // 防抖保存
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function() { saveToRemote(); }, 500);
+}
+
+function onSeatChange(input) {
+  // 已在 onSeatInput 中处理
+}
+
+function onCategoryChange(input) {
+  categoryData[activeTable] = input.value.trim();
+  document.querySelector('#table-' + activeTable + ' .table-cat').textContent = input.value.trim();
+  saveToRemote();
+}
+
+function updateNode(id) {
+  var node = document.getElementById('table-' + id);
+  var guests = guestData[id] || [];
+  var count = guests.filter(function(g) { return g.trim(); }).length;
+  node.querySelector('.table-count').textContent = count + '/' + SEATS;
+  node.classList.toggle('has-guests', count > 0);
+}
+
+function updateStats() {
+  var tg = 0, ut = 0;
+  tableConfig.forEach(function(t) {
+    var guests = guestData[t.id] || [];
+    var c = guests.filter(function(g) { return g.trim(); }).length;
+    tg += c;
+    if (c > 0) ut++;
+  });
+  document.getElementById('statGuests').textContent = tg;
+  document.getElementById('statTables').textContent = ut;
+}
+
+// 批量编辑
+function batchEdit() {
+  var lines = [];
+  tableConfig.forEach(function(t) {
+    var g = (guestData[t.id] || []).filter(function(x) { return x.trim(); });
+    if (g.length) lines.push(t.id + ': ' + g.join(', '));
+  });
+  document.getElementById('batchText').value = lines.join('\n');
+  document.getElementById('batchModal').classList.add('show');
+}
+function closeBatch() { document.getElementById('batchModal').classList.remove('show'); }
+function applyBatch() {
+  var text = document.getElementById('batchText').value.trim();
+  if (!text) { closeBatch(); return; }
+  guestData = {};
+  text.split('\n').forEach(function(line) {
+    line = line.trim();
+    if (!line) return;
+    var ci = line.indexOf(':');
+    if (ci === -1) return;
+    var id = parseInt(line.substring(0, ci).trim());
+    var names = line.substring(ci+1).split(/[,，]/).map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+    if (tableConfig.some(function(t) { return t.id === id; })) {
+      guestData[id] = [];
+      for (var i = 0; i < SEATS; i++) guestData[id].push(names[i] || '');
+    }
+  });
+  tableConfig.forEach(function(t) { updateNode(t.id); });
+  updateStats();
+  if (activeTable) renderEditor();
+  saveToRemote();
+  closeBatch();
+}
+
+function exportData() {
+  var data = { guests: guestData, categories: categoryData };
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '婚礼座位数据.json';
+  a.click();
+}
+function importData() {
+  document.getElementById('importText').value = '';
+  document.getElementById('importModal').classList.add('show');
+}
+function closeImport() { document.getElementById('importModal').classList.remove('show'); }
+function applyImport() {
+  try {
+    var data = JSON.parse(document.getElementById('importText').value);
+    if (data.guests) guestData = data.guests;
+    if (data.categories) {
+      categoryData = data.categories;
+      tableConfig.forEach(function(t) {
+        var n = document.getElementById('table-' + t.id);
+        if (n && categoryData[t.id]) n.querySelector('.table-cat').textContent = categoryData[t.id];
+      });
+    }
+    tableConfig.forEach(function(t) { updateNode(t.id); });
+    updateStats();
+    if (activeTable) renderEditor();
+    saveToRemote();
+    closeImport();
+    alert('导入成功！');
+  } catch(e) { alert('数据格式错误，请检查 JSON 格式。'); }
+}
+
+function clearAll() {
+  if (!confirm('确定清空所有宾客数据？')) return;
+  guestData = {};
+  tableConfig.forEach(function(t) { updateNode(t.id); });
+  updateStats();
+  if (activeTable) renderEditor();
+  saveToRemote();
+}
+
+// ===== 手机端缩放 =====
+function adjustMobileScale() {
+  if (window.innerWidth <= 768) {
+    var hall = document.getElementById('hall');
+    var container = hall.parentElement;
+    var availableWidth = container.clientWidth - 16; // padding
+    var scale = Math.min(1, availableWidth / 1000);
+    hall.style.transform = 'scale(' + scale + ')';
+    hall.style.transformOrigin = 'top center';
+    // 缩放后实际高度 = 原始高度 * scale，设置容器高度避免内容被裁切
+    var hallHeight = hall.scrollHeight;
+    container.style.height = (hallHeight * scale + 16) + 'px';
+  } else {
+    var hall = document.getElementById('hall');
+    var container = hall.parentElement;
+    hall.style.transform = '';
+    container.style.height = '';
+  }
+}
+
+window.addEventListener('resize', adjustMobileScale);
+
+init();
+adjustMobileScale();
+</script>
+</body>
+</html>
