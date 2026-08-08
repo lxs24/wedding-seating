@@ -462,8 +462,9 @@ function connectGitHub() {
       if (content) {
         try {
           var saved = JSON.parse(content);
-          if (saved.guests) { guestData = saved.guests; tableConfig.forEach(function(t) { updateNode(t.id); }); }
-          if (saved.categories) { categoryData = saved.categories; tableConfig.forEach(function(t) { var n = document.getElementById('table-' + t.id); if (n && categoryData[t.id]) n.querySelector('.table-cat').textContent = categoryData[t.id]; }); }
+          var d = saved.data || saved;
+          if (d.guests) { guestData = d.guests; tableConfig.forEach(function(t) { updateNode(t.id); }); }
+          if (d.categories) { categoryData = d.categories; tableConfig.forEach(function(t) { var n = document.getElementById('table-' + t.id); if (n && categoryData[t.id]) n.querySelector('.table-cat').textContent = categoryData[t.id]; }); }
           localVersion = saved.version || 0;
           updateStats();
           if (activeTable) renderEditor();
@@ -511,14 +512,15 @@ function startPolling() {
             var saved = JSON.parse(content);
             if (saved.version && saved.version > localVersion) {
               localVersion = saved.version;
-              if (saved.guests) {
-                guestData = saved.guests;
+              var d = saved.data || saved;
+              if (d.guests) {
+                guestData = d.guests;
                 tableConfig.forEach(function(t) { updateNode(t.id); });
                 updateStats();
                 if (activeTable) renderEditor();
               }
-              if (saved.categories) {
-                categoryData = saved.categories;
+              if (d.categories) {
+                categoryData = d.categories;
                 tableConfig.forEach(function(t) {
                   var n = document.getElementById('table-' + t.id);
                   if (n && categoryData[t.id]) n.querySelector('.table-cat').textContent = categoryData[t.id];
